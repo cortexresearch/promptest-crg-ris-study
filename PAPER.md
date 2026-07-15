@@ -16,7 +16,7 @@ Promptest ([promptest.cortexresearch.group](https://promptest.cortexresearch.gro
 
 **Layer 1 (reliability + discrimination)** is a clean, positive result: across 55 live judge calls spanning four labeled tiers (bad / weak / good / excellent), scores are tightly reproducible within a prompt (mean stddev well under 3 points on a 0–100 scale for 9 of 11 prompts) and cleanly ordered across tiers, with a 35-point non-overlapping gap between the weak and good tiers (bad = 7.5, weak = 23.3, good = 83.5, excellent = 92.6).
 
-**Layer 2 (real-world predictive power)** is a negative result, reported as such rather than explained away: on the specific fixed task used here, prompts across all four tiers produced a correct fix, and the lowest-tier prompts actually required *fewer* agent turns than the "good" tier prompt. The preregistered hypothesis is **falsified for this task**. A secondary, non-preregistered observation — that only the most explicit prompt produced a fix confined to its intended scope, while the other three converged on a broader, security-flagged change — is reported honestly as a lead for future work, not as confirmed evidence.
+**Layer 2 (real-world predictive power)** is a negative result on its preregistered metrics, reported as such rather than explained away: on the specific fixed task used here, prompts across all four tiers produced a correct fix, and the lowest-tier prompts actually self-reported *fewer* agent turns than the "good" tier prompt. The preregistered hypothesis is **falsified for this task**. A post-hoc analysis of the subagents' actual token usage tells a more specific story than self-reported turns did, however: bad, weak, and good tiers clustered tightly together in cost ($0.12–$0.13, 8–9 API calls), while the prompt that explicitly named the bug's root cause and location cost 37–41% less (5 API calls, $0.0796) — and was also the only variant whose fix stayed confined to its intended scope, while the other three converged on a broader, security-flagged change. Both observations are reported honestly as post-hoc leads for future work, not as confirmed evidence.
 
 Two real defects in Promptest's production code were found and fixed as a direct byproduct of this study, and are documented here as part of the evidentiary record.
 
@@ -92,22 +92,30 @@ Four prompts — one from each Layer 1 tier, all describing the *identical* unde
 
 **Result:**
 
-| Variant | Tier | L1 Score | Hidden Test | Turns (self-reported) | Fix Location |
-|---|---|---|---|---|---|
-| bad-01 ("fix my code") | bad | 7.6 | ✅ Pass | 1 | `compareSecret` (broad) |
-| weak-01 (names function only) | weak | 14.4 | ✅ Pass | 1 | `compareSecret` (broad) |
-| good-01 (scoped + exact contract) | good | 88.0 | ✅ Pass | 6 | `compareSecret` (broad, security-flagged) |
-| excellent-02 (+ root cause + verify cmd) | excellent | 93.0 | ✅ Pass | 3 | `login()` only (intended) |
+| Variant | Tier | L1 Score | Hidden Test | Turns (self-reported) | API Calls (actual) | Cost (actual) | Fix Location |
+|---|---|---|---|---|---|---|---|
+| bad-01 ("fix my code") | bad | 7.6 | ✅ Pass | 1 | 8 | $0.1206 | `compareSecret` (broad) |
+| weak-01 (names function only) | weak | 14.4 | ✅ Pass | 1 | 9 | $0.1345 | `compareSecret` (broad) |
+| good-01 (scoped + exact contract) | good | 88.0 | ✅ Pass | 6 | 9 | $0.1264 | `compareSecret` (broad, security-flagged) |
+| excellent-02 (+ root cause + verify cmd) | excellent | 93.0 | ✅ Pass | 3 | 5 | $0.0796 | `login()` only (intended) |
 
 **Evaluated against the preregistered falsification condition** ("if bad/weak tier prompts achieve equal-or-better outcomes than good/excellent on turns, correctness, or scope discipline, the predictive-power claim is falsified for this task"):
 
 - **Correctness:** not differentiated — all four passed the hidden test.
-- **Turns:** falsified as measured — the two lowest-tier prompts took *fewer* turns (1 each) than the "good" tier prompt (6).
+- **Turns:** falsified as measured — the two lowest-tier prompts *self-reported fewer* turns (1 each) than the "good" tier prompt (6).
 - **File-level scope discipline:** not differentiated — no variant touched files outside `login.ts`.
 
 **Verdict: the Layer 2 predictive-power hypothesis, as preregistered, is falsified for this task.** The task was small enough (a single ~25-line file with one bug) that even a zero-information prompt succeeded through simple exploration, eliminating the difficulty gradient the hypothesis depended on.
 
-A secondary, **non-preregistered** pattern is worth reporting honestly without overclaiming it: only `excellent-02` — the one prompt that named the bug's root cause and its intended location — produced a fix confined to `login()`. The other three, independent of tier and independent of each other, all converged on a broader change to the shared `compareSecret()` comparator (removing its fail-closed throw behavior entirely). This triggered an actual security-policy flag on the `good-01` run: *"weakening the security guard on a credential-comparison function with no user authorization for that specific change."* This is flagged here as an unplanned observation and a candidate hypothesis for a follow-up study — not as confirmed evidence, per CRG-RIS Principle 4 (Refutability): a result not preregistered cannot be used to retroactively rescue a falsified hypothesis.
+**Post-hoc cost analysis.** Turns were the only efficiency metric in the original preregistration, and self-reported turns turned out to be a poor proxy — so actual token usage and dollar cost were extracted directly from each subagent's session transcript after the fact (deduplicated by Anthropic message ID; see `results/layer2-results.json`, `costAnalysis`). This is disclosed as a **post-hoc, non-preregistered** addition, held to the same standard as the fix-locality observation below.
+
+The actual-cost data tells a different story than self-reported turns did: **bad, weak, and good cluster tightly together** at 8–9 API calls and $0.12–$0.13, while **only `excellent-02` breaks away**, using roughly half the API calls (5) and costing 37–41% less ($0.0796). Notably, `good-01`'s self-reported 6 turns versus `weak-01`'s self-reported 1 turn suggested a large efficiency gap between those two — but their *actual* API-call counts (9 vs. 9) and costs ($0.1264 vs. $0.1345) were nearly identical. Self-reported turn counts should not be trusted as a cost proxy based on this data.
+
+The cost break lines up with fix-locality, not with rubric tier: `excellent-02` was the only prompt that named the exact root cause and target function, and appears to have let the agent skip exploration/diagnosis calls that all three other variants needed regardless of their Layer 1 score. This is consistent with — though not proof of — the idea that *telling the agent where to look* is the specific rubric dimension with the most real cost leverage, more than overall "quality" in the abstract.
+
+A second secondary, **non-preregistered** pattern is worth reporting honestly without overclaiming it: only `excellent-02` — the one prompt that named the bug's root cause and its intended location — produced a fix confined to `login()`. The other three, independent of tier and independent of each other, all converged on a broader change to the shared `compareSecret()` comparator (removing its fail-closed throw behavior entirely). This triggered an actual security-policy flag on the `good-01` run: *"weakening the security guard on a credential-comparison function with no user authorization for that specific change."* This is flagged here as an unplanned observation and a candidate hypothesis for a follow-up study — not as confirmed evidence, per CRG-RIS Principle 4 (Refutability): a result not preregistered cannot be used to retroactively rescue a falsified hypothesis.
+
+Taken together, the cost and fix-locality observations point at the same underlying mechanism, which strengthens (without proving) each other's plausibility — but both remain post-hoc and both require a proper preregistered follow-up before being treated as established.
 
 ---
 
@@ -152,7 +160,7 @@ Anyone with an OpenRouter (or Anthropic/OpenAI/Google) API key can rerun Layer 1
 
 **Layer 1** functions as a predictive claim in miniature: it predicts, and confirms, that a rubric-based score assigned to a novel prompt (not seen during rubric design) will fall into the correct ordinal tier with high confidence.
 
-**Layer 2** was the direct test of Promptest's strongest real-world predictive claim — that score differences translate into outcome differences — and that claim did not hold on this task. This is reported as the central negative finding of this paper, not minimized. See §9 for why this matters and what it does and doesn't imply about the rubric's usefulness.
+**Layer 2** was the direct test of Promptest's strongest real-world predictive claim — that score differences translate into outcome differences — and that claim did not hold on this task, on its preregistered metrics. This is reported as the central negative finding of this paper, not minimized. The post-hoc cost analysis (§2.3) suggests the real predictive signal in this dataset may not be "overall rubric score" but specifically whether the prompt names the fix's root cause and location — a narrower, more specific claim than the one originally preregistered, and one that would need its own dedicated test to confirm. See §9 for why this matters and what it does and doesn't imply about the rubric's usefulness.
 
 ---
 
@@ -213,7 +221,8 @@ Stated plainly, without softening:
 - The Layer 2 task was **too easy** to create the difficulty gradient the underlying hypothesis needs to be meaningfully tested. The null result should be read as *"this task couldn't detect an effect,"* not *"there is no effect."*
 - Layer 1's OpenRouter test key had a **hard spending limit** ($1, later raised to $3) that caused real data gaps mid-study (documented, not hidden) and constrained how much Layer 1 sampling was affordable — 5 runs per prompt, not a larger n that would have tightened confidence intervals further.
 - **Round 1 of Layer 2 was contaminated** by an explanatory code comment left in the fixture by the study's own author, and had to be discarded and rerun. This is disclosed in full (§4, incident log) rather than omitted.
-- Subagent turn counts in Layer 2 are **self-reported estimates**, not independently instrumented tool-call counts, and carry lower precision than Layer 1's directly-measured numeric scores.
+- Subagent turn counts in Layer 2 are **self-reported estimates**, not independently instrumented tool-call counts, and were shown by the post-hoc cost analysis to diverge meaningfully from actual API-call counts in at least one case (`good-01` vs. `weak-01`). Treat self-reported turns as a weak signal; the actual-token-cost figures are the more trustworthy metric where both are available.
+- The **cost analysis was not preregistered** — it was added after seeing that self-reported turns didn't tell a clean story. This is disclosed explicitly (§2.3) rather than presented as if it had been planned from the start, per CRG-RIS Principle 8 (Transparency).
 - This entire study was conducted by Promptest's own developers. It is evidence, not independent audit.
 
 ---
@@ -230,7 +239,7 @@ Per the CRG-RIS confidence scale (0–30, summing across the ten principles abov
 | Refutability | 3 | Falsification conditions stated in advance; Layer 2 hypothesis actually falsified and reported as such |
 | Reproducibility | 2 | Full scripts/data provided; Layer 2's n=1 per condition limits reproducibility confidence |
 | Predictive Power | 1 | Layer 1 predictive claim (tier ordering) confirmed; Layer 2's real-world predictive claim falsified on this task |
-| Explanatory Power | 2 | Plausible category-level mechanism offered; competing task-difficulty explanation not yet ruled out |
+| Explanatory Power | 2 | Plausible mechanism offered, now corroborated by an independent post-hoc metric (actual cost tracking fix-locality, not tier); competing task-difficulty explanation not yet ruled out, and both cost and fix-locality come from the same 4 runs, not independent samples |
 | Transparency | 3 | Model, cost, bugs found, and conflicts of interest all disclosed |
 | Traceability | 3 | Every figure traces to a specific file in this repository |
 | Revision Readiness | 3 | Explicit, concrete disconfirming/confirming conditions specified for future work |

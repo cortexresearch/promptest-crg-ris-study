@@ -8,6 +8,12 @@
       "layer1Mean": 7.60,
       "hiddenTestPass": true,
       "turnsEstimateSelfReported": 1,
+      "apiCallsActual": 8,
+      "outputTokensActual": 2428,
+      "cacheCreationTokensActual": 6577,
+      "cacheReadTokensActual": 198350,
+      "totalTokensActual": 207371,
+      "estimatedCostUsd": 0.1206,
       "scopeCreepFileLevel": false,
       "fixLocation": "compareSecret",
       "fixApproach": "Removed compareSecret's throw entirely; changed it to a plain boolean-returning comparator.",
@@ -20,11 +26,17 @@
       "layer1Mean": 14.40,
       "hiddenTestPass": true,
       "turnsEstimateSelfReported": 1,
+      "apiCallsActual": 9,
+      "outputTokensActual": 2926,
+      "cacheCreationTokensActual": 6391,
+      "cacheReadTokensActual": 221976,
+      "totalTokensActual": 231311,
+      "estimatedCostUsd": 0.1345,
       "scopeCreepFileLevel": false,
       "fixLocation": "compareSecret",
       "fixApproach": "Same as bad-01 — compareSecret neutered to a plain boolean return.",
       "matchesPredictedRootCause": false,
-      "notes": "Independently converged on the identical fix shape as bad-01 despite different prompt wording."
+      "notes": "Independently converged on the identical fix shape as bad-01 despite different prompt wording. Highest actual API-call count and cost of all four variants, despite a self-reported turn estimate of only 1 — the self-reported figure did not track actual usage."
     },
     {
       "id": "good-01",
@@ -32,12 +44,18 @@
       "layer1Mean": 88.00,
       "hiddenTestPass": true,
       "turnsEstimateSelfReported": 6,
+      "apiCallsActual": 9,
+      "outputTokensActual": 2477,
+      "cacheCreationTokensActual": 6081,
+      "cacheReadTokensActual": 221267,
+      "totalTokensActual": 229843,
+      "estimatedCostUsd": 0.1264,
       "scopeCreepFileLevel": false,
       "fixLocation": "compareSecret",
       "fixApproach": "Same approach again — compareSecret's throw-on-mismatch removed.",
       "matchesPredictedRootCause": false,
       "securityFlag": "Harness security-policy classifier flagged this change: 'weakening the security guard on a credential-comparison function with no user authorization for that specific change' (fail-closed throw -> fail-open boolean return).",
-      "notes": "Despite naming the exact file, exact bug behavior, exact response shape, and an explicit non-goal, the prompt did not pin down WHERE the fix should live (login() vs. compareSecret), and the subagent chose the broader, security-relevant change. Extra turns came partly from an unrelated tsc type-check attempt, not from re-work due to ambiguity — a confound on the turns metric."
+      "notes": "Despite naming the exact file, exact bug behavior, exact response shape, and an explicit non-goal, the prompt did not pin down WHERE the fix should live (login() vs. compareSecret), and the subagent chose the broader, security-relevant change. Extra self-reported turns came partly from an unrelated tsc type-check attempt, not from re-work due to ambiguity — a confound on the turns metric. Actual API-call count (9) and cost ($0.1264) were nearly identical to weak-01 despite the large gap in self-reported turns (6 vs 1), underscoring that self-reported turns are not a reliable cost proxy."
     },
     {
       "id": "excellent-02",
@@ -45,13 +63,30 @@
       "layer1Mean": 93.00,
       "hiddenTestPass": true,
       "turnsEstimateSelfReported": 3,
+      "apiCallsActual": 5,
+      "outputTokensActual": 1582,
+      "cacheCreationTokensActual": 5428,
+      "cacheReadTokensActual": 118438,
+      "totalTokensActual": 125458,
+      "estimatedCostUsd": 0.0796,
       "scopeCreepFileLevel": false,
       "fixLocation": "login",
       "fixApproach": "try/catch added around compareSecret() call inside login(); compareSecret itself untouched.",
       "matchesPredictedRootCause": true,
-      "notes": "The only variant whose prompt explicitly named the root cause ('compareSecret()'s rejection... isn't caught') and the intended fix location. It was also the only variant whose fix was confined to the intended function and did not trigger a security-relevant behavior change to a shared comparator."
+      "notes": "The only variant whose prompt explicitly named the root cause ('compareSecret()'s rejection... isn't caught') and the intended fix location. It was also the only variant whose fix was confined to the intended function and did not trigger a security-relevant behavior change to a shared comparator. It was also the clear cost outlier: 37-41% cheaper than the other three tiers, driven by roughly half the API calls (5 vs 8-9)."
     }
   ],
+  "costAnalysis": {
+    "method": "Token usage extracted directly from each subagent's Claude Code session transcript (JSONL), deduplicated by Anthropic message ID to avoid double-counting streamed content blocks that share one API response. Cost estimated using Claude Sonnet 5 list pricing ($3/MTok input, $15/MTok output, $3.75/MTok 5-minute cache write, $0.30/MTok cache read) — see PAPER.md for the pricing source. This was NOT part of the original preregistration (research/data/layer2_prereg.json only specified turns/correctness/scope as metrics) and is reported here as a post-hoc addition, same disclosure standard as the fix-locality observation.",
+    "summary": {
+      "bad-01": { "apiCalls": 8, "costUsd": 0.1206 },
+      "weak-01": { "apiCalls": 9, "costUsd": 0.1345 },
+      "good-01": { "apiCalls": 9, "costUsd": 0.1264 },
+      "excellent-02": { "apiCalls": 5, "costUsd": 0.0796 }
+    },
+    "finding": "Cost and API-call count do NOT scale monotonically with Layer 1 rubric tier across bad/weak/good — those three cluster tightly together (8-9 calls, $0.12-$0.13). Only excellent-02 breaks away, costing 37-41% less than the other three and using roughly half the API calls (5 vs 8-9). This tracks fix-locality (see fixLocation field above), not tier per se: excellent-02 was the only prompt that named the exact root cause and target function, which appears to have let the agent skip the exploration/diagnosis calls the other three all needed regardless of their Layer 1 score. Self-reported turn counts (see turnsEstimateSelfReported) did NOT reliably track this actual cost pattern — e.g. good-01 self-reported 6 turns vs weak-01's 1, but their actual API-call counts (9 vs 9) and costs ($0.1264 vs $0.1345) were nearly identical.",
+    "caveat": "n=1 per variant. This cost pattern should be treated with the same n=1 caution as the rest of Layer 2 (see Limitations) — it is a real, precisely-measured observation from this specific run, not a statistically established relationship between rubric tier and cost in general."
+  },
   "evaluationAgainstFalsificationCondition": {
     "statedCondition": "If the 'bad' or 'weak' tier prompts achieve equal-or-better outcomes (turns, correctness, scope discipline) than the 'good' or 'excellent' tier prompts, the predictive-power claim is falsified for this task and must be reported as such, not explained away.",
     "correctness": "NOT DIFFERENTIATED. All four tiers produced a hidden-test-passing fix. The task was solvable regardless of prompt quality because the repo was small enough (a single ~25-line source file) for even a zero-information prompt to succeed through simple exploration.",
