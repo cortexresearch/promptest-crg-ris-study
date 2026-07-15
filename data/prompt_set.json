@@ -1,0 +1,66 @@
+{
+  "description": "Labeled prompt set for CRG-RIS discrimination testing. Labels are the expected ordinal tier based on Promptest's stated rubric (Specificity, Clarity, Scope, Verification, Calibration), constructed independently of the judge so they serve as ground truth.",
+  "tiers": ["bad", "weak", "good", "excellent"],
+  "prompts": [
+    {
+      "id": "bad-01",
+      "tier": "bad",
+      "text": "fix my code"
+    },
+    {
+      "id": "bad-02",
+      "tier": "bad",
+      "text": "make the app better"
+    },
+    {
+      "id": "bad-03",
+      "tier": "bad",
+      "text": "build me a website like Instagram"
+    },
+    {
+      "id": "weak-01",
+      "tier": "weak",
+      "text": "Can you fix the bug in my login function? It's not working right."
+    },
+    {
+      "id": "weak-02",
+      "tier": "weak",
+      "text": "Add a rate limiter to my Express API so people can't spam it."
+    },
+    {
+      "id": "weak-03",
+      "tier": "weak",
+      "text": "Refactor this React component to be cleaner and add error handling, also maybe add tests and improve performance and fix any bugs you see and update the styling too."
+    },
+    {
+      "id": "good-01",
+      "tier": "good",
+      "text": "In src/login.ts (TypeScript), the login() function throws instead of returning a 401 response when the password is wrong. Fix it so wrong-password attempts return { status: 401, body: { error: \"invalid_credentials\" } }. Don't change the unknown-user path."
+    },
+    {
+      "id": "good-02",
+      "tier": "good",
+      "text": "Add a sliding-window rate limiter middleware to my Express API, keyed by IP, 100 requests per 60 seconds. Use an in-memory store, no Redis. Return 429 on limit exceeded."
+    },
+    {
+      "id": "excellent-01",
+      "tier": "excellent",
+      "text": "In src/api/rateLimiter.ts (Node/TypeScript, Express middleware), add a sliding-window rate limiter keyed by req.ip that allows 100 requests per 60-second window. Use an in-memory Map<string, number[]> of timestamps — no Redis, this is single-instance for now. On limit exceeded, respond 429 with JSON { error: \"rate_limited\", retryAfterMs: <number> }. Don't touch the existing auth middleware in the same file. Add a unit test in src/api/rateLimiter.test.ts covering: under-limit passes through, over-limit returns 429, and the window correctly slides (old timestamps expire). Run pnpm test rateLimiter when done and paste the output."
+    },
+    {
+      "id": "excellent-02",
+      "tier": "excellent",
+      "text": "In src/login.ts (TypeScript), the login() function currently throws for invalid passwords instead of returning a 401. Root cause: compareSecret()'s rejection on a mismatch isn't caught, so it propagates up instead of being treated as a normal invalid-credentials case. Fix: catch the compareSecret rejection (or otherwise handle the mismatch) and return { status: 401, body: { error: \"invalid_credentials\" } } — do not change the unknown-user path (email not found should still return the same 401 shape it does today). Verify your fix by running: pnpm exec tsx hidden_test.ts — it should print allPass: true and exit 0."
+    },
+    {
+      "id": "edge-01",
+      "tier": "bad",
+      "text": ""
+    },
+    {
+      "id": "edge-02",
+      "tier": "bad",
+      "text": "asdkjfh aslkdjf laksjdf"
+    }
+  ]
+}

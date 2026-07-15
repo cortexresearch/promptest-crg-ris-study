@@ -1,0 +1,49 @@
+{
+  "description": "CRG-RIS Layer 2 preregistration. Predictions are recorded BEFORE any Layer 2 execution, per CRG-RIS Principle 4 (Refutability) and Principle 6 (Predictive Power). Task and prompts are fixed at registration time and must not be altered after execution begins.",
+  "registeredAt": "2026-07-14T22:15:00Z",
+  "fixedTask": {
+    "description": "Given a small Node/TypeScript repo with a single bug (see task_repo/), each prompt variant below is used verbatim to instruct a coding agent (Claude Code) to fix the described issue. The underlying bug and target file are IDENTICAL across all prompt variants — only the prompt wording differs, matching each prompt's labeled tier from Layer 1's discrimination set.",
+    "successCriteria": [
+      "The specific bug is actually fixed (verified by a fixed, hidden test the agent does not see in advance)",
+      "No unrelated files/behavior are modified (scope creep check)",
+      "Number of agent turns/clarifying questions needed to reach a correct fix",
+      "Whether the agent's own tests (if it writes any) pass"
+    ]
+  },
+  "variants": [
+    { "id": "bad-01", "tier": "bad", "promptSetRef": "bad-01", "layer1Mean": 7.60 },
+    { "id": "weak-01", "tier": "weak", "promptSetRef": "weak-01", "layer1Mean": 14.40 },
+    { "id": "good-01", "tier": "good", "promptSetRef": "good-01", "layer1Mean": 88.00 },
+    { "id": "excellent-02", "tier": "excellent", "promptSetRef": "excellent-02", "layer1Mean": 93.00 }
+  ],
+  "predictions": {
+    "hypothesis": "Higher Layer 1 Promptest scores predict: (a) fewer agent turns to reach a correct fix, (b) lower incidence of scope creep, (c) higher probability the fix passes the hidden test on the first attempt.",
+    "falsification_condition": "If the 'bad' or 'weak' tier prompts achieve equal-or-better outcomes (turns, correctness, scope discipline) than the 'good' or 'excellent' tier prompts, the predictive-power claim is falsified for this task and must be reported as such, not explained away.",
+    "recordedBeforeExecution": [
+      {
+        "id": "bad-01",
+        "prediction": "The prompt 'fix my code' gives the agent zero information about which file, which bug, or what 'fixed' means. Predicted outcome: the agent cannot proceed without asking a clarifying question, OR guesses at an unrelated/incorrect change, OR (if it inspects the repo unprompted) may stumble onto the right file by exploration alone since the repo is small — this is the main risk to the hypothesis for this specific variant. Predicted: hidden test FAILS or requires clarification; turns >= 2 if it succeeds at all."
+      },
+      {
+        "id": "weak-01",
+        "prediction": "'fix the bug in my login function' names the right file by inference (only one login-like file exists) but gives no specifics on symptom, expected behavior, or verification. Predicted: agent likely finds and fixes the actual bug (repo is small enough to locate it), but without a specified success condition, may not verify correctly or may produce a different fix shape (e.g. wrapping in try/catch broadly vs. the precise 401 contract). Predicted: hidden test PASSES or NARROWLY FAILS on response-shape mismatch; turns = 1-2; some risk of scope creep (agent may 'clean up' the file beyond the fix)."
+      },
+      {
+        "id": "good-01",
+        "prediction": "Names the file, the exact bug behavior, the exact required response shape, and an explicit non-goal (don't change unknown-user path). Predicted: hidden test PASSES on first attempt; turns = 1; no scope creep."
+      },
+      {
+        "id": "excellent-02",
+        "prediction": "Same as good-01 but additionally names the root cause (compareSecret rejection uncaught) and gives the exact verification command to run. Predicted: hidden test PASSES on first attempt; turns = 1; no scope creep; agent runs the verification command unprompted since it's given explicitly (a behavior good-01 does not explicitly request)."
+      }
+    ]
+  },
+  "incidents": [
+    {
+      "id": "contamination-round-1",
+      "timestamp": "2026-07-14T22:20:00Z",
+      "description": "Round 1 of Layer 2 execution (4 subagent runs, one per variant) was discarded after all 4 subagents self-reported diagnosing the bug via an explanatory '// BUG:' comment left in src/login.ts by the fixture author. This comment functioned as an answer key and made the prompt text itself irrelevant to the agent's ability to succeed, invalidating the discrimination test's premise (that prompt quality — not code comments — determines outcome difficulty). The comment (and a similar explanatory comment on compareSecret) was stripped from task_repo/src/login.ts, verified the fixture still fails hidden_test.ts identically after stripping (same failure mode: wrong_password_returns_401 fails, unknown_user_returns_401 passes), regenerated all 4 isolated copies from the cleaned fixture (new checksum 8171e5f1d323701eb40dbbf2803fbc566bed4a9749f5614e1c808f6829dff1cc), and reran all 4 variants as round 2. Round 1 transcripts are preserved for methodology transparency but excluded from result reporting.",
+      "secondaryFix": "Also added a minimal package.json to task_repo/ (and thus each isolated copy) after the round-1 excellent-02 subagent reported that `pnpm exec tsx hidden_test.ts` — the literal verification command specified in that prompt — failed with ERR_MODULE_NOT_FOUND because pnpm resolved the package root by walking up to the unrelated parent promptest/ project instead of the task directory. This was an environment/harness defect, not a fixture leak, but it made the excellent-02 prompt's explicit instruction untestable as written, so it was fixed before round 2."
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "description": "CRG-RIS Layer 2 final results (round 2, post-decontamination). See research/data/layer2_prereg.json for the preregistered predictions and incident log.",
+  "executedAt": "2026-07-14T22:40:00Z",
+  "results": [
+    {
+      "id": "bad-01",
+      "tier": "bad",
+      "layer1Mean": 7.60,
+      "hiddenTestPass": true,
+      "turnsEstimateSelfReported": 1,
+      "scopeCreepFileLevel": false,
+      "fixLocation": "compareSecret",
+      "fixApproach": "Removed compareSecret's throw entirely; changed it to a plain boolean-returning comparator.",
+      "matchesPredictedRootCause": false,
+      "notes": "Subagent had zero task-specific information ('fix my code') and still located and fixed the actual bug correctly on the first attempt, because the repo was trivially small (one source file). This is a real limitation of the task's difficulty for testing the 'bad' tier's predicted failure mode — a larger/more ambiguous repo would likely show more separation."
+    },
+    {
+      "id": "weak-01",
+      "tier": "weak",
+      "layer1Mean": 14.40,
+      "hiddenTestPass": true,
+      "turnsEstimateSelfReported": 1,
+      "scopeCreepFileLevel": false,
+      "fixLocation": "compareSecret",
+      "fixApproach": "Same as bad-01 — compareSecret neutered to a plain boolean return.",
+      "matchesPredictedRootCause": false,
+      "notes": "Independently converged on the identical fix shape as bad-01 despite different prompt wording."
+    },
+    {
+      "id": "good-01",
+      "tier": "good",
+      "layer1Mean": 88.00,
+      "hiddenTestPass": true,
+      "turnsEstimateSelfReported": 6,
+      "scopeCreepFileLevel": false,
+      "fixLocation": "compareSecret",
+      "fixApproach": "Same approach again — compareSecret's throw-on-mismatch removed.",
+      "matchesPredictedRootCause": false,
+      "securityFlag": "Harness security-policy classifier flagged this change: 'weakening the security guard on a credential-comparison function with no user authorization for that specific change' (fail-closed throw -> fail-open boolean return).",
+      "notes": "Despite naming the exact file, exact bug behavior, exact response shape, and an explicit non-goal, the prompt did not pin down WHERE the fix should live (login() vs. compareSecret), and the subagent chose the broader, security-relevant change. Extra turns came partly from an unrelated tsc type-check attempt, not from re-work due to ambiguity — a confound on the turns metric."
+    },
+    {
+      "id": "excellent-02",
+      "tier": "excellent",
+      "layer1Mean": 93.00,
+      "hiddenTestPass": true,
+      "turnsEstimateSelfReported": 3,
+      "scopeCreepFileLevel": false,
+      "fixLocation": "login",
+      "fixApproach": "try/catch added around compareSecret() call inside login(); compareSecret itself untouched.",
+      "matchesPredictedRootCause": true,
+      "notes": "The only variant whose prompt explicitly named the root cause ('compareSecret()'s rejection... isn't caught') and the intended fix location. It was also the only variant whose fix was confined to the intended function and did not trigger a security-relevant behavior change to a shared comparator."
+    }
+  ],
+  "evaluationAgainstFalsificationCondition": {
+    "statedCondition": "If the 'bad' or 'weak' tier prompts achieve equal-or-better outcomes (turns, correctness, scope discipline) than the 'good' or 'excellent' tier prompts, the predictive-power claim is falsified for this task and must be reported as such, not explained away.",
+    "correctness": "NOT DIFFERENTIATED. All four tiers produced a hidden-test-passing fix. The task was solvable regardless of prompt quality because the repo was small enough (a single ~25-line source file) for even a zero-information prompt to succeed through simple exploration.",
+    "turns": "FALSIFIED AS MEASURED. bad-01 and weak-01 took FEWER self-reported turns (1 each) than good-01 (6). This is the opposite of the predicted direction, though good-01's extra turns were partly self-inflicted overhead rather than re-work from ambiguity — a genuine confound, not an artifact hidden to protect the hypothesis.",
+    "scopeDiscipline_fileLevel": "NOT DIFFERENTIATED. No variant touched files outside login.ts.",
+    "verdict": "The Layer 2 predictive-power hypothesis, AS PREREGISTERED AND MEASURED, is FALSIFIED for this specific task. The task was too small/simple to create meaningful difficulty separation between tiers on the three preregistered metrics.",
+    "postHocObservation": "A real, unplanned signal did emerge on a dimension not in the original metric set: fix locality / implementation-approach precision. Only the prompt that explicitly named the root cause and target function (excellent-02) produced a fix confined to the intended function; the other three, regardless of tier, independently converged on a broader change to a shared comparator function, which triggered an actual security-policy flag on one run. This is reported as a post-hoc, non-preregistered observation and should NOT be treated as confirmed evidence — it is a hypothesis for a follow-up study with fix-locality as an explicit preregistered metric, ideally with a task where multiple valid fix locations exist by design and a genuinely larger/more ambiguous codebase to give 'bad' and 'weak' tier prompts room to fail."
+  },
+  "limitations": [
+    "n=1 per variant (4 total runs) — no repeated-run variance data for Layer 2, unlike Layer 1's n=5. A single run per condition cannot distinguish genuine prompt-driven behavior from one-off model stochasticity.",
+    "Task was a single, small, single-bug repo — insufficient difficulty to differentiate 'bad'/'weak' tier prompts on correctness or turns for this study.",
+    "Subagent self-reported turn counts are estimates, not independently measured tool-call counts, and are not directly comparable in precision to Layer 1's programmatically-measured scores.",
+    "Round 1 was discarded due to fixture contamination (explanatory code comments); see incidents log in layer2_prereg.json."
+  ]
+}
